@@ -54,11 +54,14 @@ h1 { margin: 4px 0 3px; color: var(--ink); font: 650 clamp(20px, 2vw, 27px)/1.05
 .view-controls { padding: 4px; background: #f2f3ef; border-radius: 8px; }
 .view-controls button { height: 26px; min-width: 27px; padding: 0 8px; color: #4c5751; background: #fff; border: 1px solid #dde0da; border-radius: 6px; font-size: 10px; font-weight: 700; transition: .2s; }
 .view-controls button:hover { color: var(--orange-dark); border-color: #efb39e; }
+.view-controls button.active { color: #fff; background: var(--green); border-color: var(--green); }
 .view-controls output { min-width: 38px; color: #6f7772; text-align: center; font-size: 9px; font-weight: 700; }
 .view-controls .fit-button, .view-controls .download-button { padding: 0 10px; }
 .view-controls .download-button { color: white; background: var(--green); border-color: var(--green); }
 .view-controls .download-button:hover { color: white; background: #173d30; border-color: #173d30; }
 .graph-shell { position: relative; flex: 1; min-height: 455px; overflow: auto; display: block; background: #fff; border: 1px solid #e0e1dc; border-radius: 12px; }
+.graph-shell:fullscreen { padding: 30px; background: #fff; border: 0; border-radius: 0; }
+.graph-shell:fullscreen .graph-grid { position: fixed; }
 .graph-grid { position: absolute; inset: 0; opacity: .55; background-image: radial-gradient(#d9ded9 1px, transparent 1px); background-size: 22px 22px; mask-image: linear-gradient(to bottom, black, transparent 90%); }
 .graph-svg { position: relative; z-index: 1; display: block; min-width: 480px; margin: auto; overflow: visible; }
 .edges line { stroke: #586a61; stroke-width: 2.2; stroke-linecap: round; opacity: 0; animation: draw-line .45s ease forwards; }
@@ -69,10 +72,11 @@ h1 { margin: 4px 0 3px; color: var(--ink); font: 650 clamp(20px, 2vw, 27px)/1.05
 .node .subscript { font-size: 8px; font-style: normal; stroke-width: 3px; }
 @keyframes draw-line { from { opacity: 0; } to { opacity: .82; } }
 @keyframes pop-node { from { opacity: 0; } to { opacity: 1; } }
-.stats { min-height: 68px; display: grid; grid-template-columns: 125px 125px 1fr; align-items: center; margin-top: 16px; border-top: 1px solid var(--line); }
+.stats { min-height: 68px; display: grid; grid-template-columns: 105px 105px 118px 105px 1fr; align-items: center; margin-top: 16px; border-top: 1px solid var(--line); }
 .stats > div { display: flex; align-items: center; gap: 10px; }
 .stat-icon { width: 30px; height: 30px; display: grid; place-items: center; color: var(--green); background: #e8eee9; border-radius: 8px; }
 .stat-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.metric-icon { font: 700 12px/1 'Manrope', sans-serif; }
 .stats p { margin: 0; display: flex; flex-direction: column; }
 .stats strong { color: #313632; font: 700 17px/1.1 'Manrope', sans-serif; }
 .stats small { margin-top: 2px; color: #949994; font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
