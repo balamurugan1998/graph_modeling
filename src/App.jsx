@@ -339,14 +339,13 @@ function App() {
   const [showLeverageCentrality, setShowLeverageCentrality] = useState(false)
   const [error, setError] = useState('')
 
-  const isEdgeAugmented = graphType.startsWith('edc')
   const selectedType = GRAPH_TYPES.find((type) => type.value === graphType) ?? GRAPH_TYPES[0]
   const graph = useMemo(() => createGraph(values.n, values.m, graphType), [values, graphType])
 
   const leverageData = useMemo(() => {
-    if (!isEdgeAugmented || !showLeverageCentrality) return null
+    if (!showLeverageCentrality) return null
     return calculateLeverageCentrality(graph)
-  }, [graph, isEdgeAugmented, showLeverageCentrality])
+  }, [graph, showLeverageCentrality])
 
   const averageDegree = graph.nodes.length ? (2 * graph.edges.length / graph.nodes.length).toFixed(2) : '0'
   const density = graph.nodes.length > 1 ? (200 * graph.edges.length / (graph.nodes.length * (graph.nodes.length - 1))).toFixed(1) : '0'
@@ -357,9 +356,6 @@ function App() {
 
   const handleGraphTypeChange = (newType) => {
     setGraphType(newType)
-    if (!newType.startsWith('edc')) {
-      setShowLeverageCentrality(false)
-    }
   }
 
   const handleSubmit = (event) => {
@@ -385,26 +381,24 @@ function App() {
         <NumberField id="m-value" label="Maximum columns (m)" value={mInput} helper="Any integer of 2 or more" onChange={setMInput} />
         <label className="field" htmlFor="graph-type"><span>Graph type</span><select id="graph-type" value={graphType} onChange={(event) => handleGraphTypeChange(event.target.value)}><optgroup label="Base graph"><option value="dc">Delimited Cross Graph</option></optgroup><optgroup label="Edge Augmented">{GRAPH_TYPES.filter((type) => type.value.startsWith('edc')).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</optgroup><optgroup label="Vertex-Edge Augmented">{GRAPH_TYPES.filter((type) => type.value.startsWith('vedc')).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</optgroup></select><small>Grouped by graph family for easier selection</small></label>
         
-        {isEdgeAugmented && (
-          <div className="leverage-option-card">
-            <label className="checkbox-field" htmlFor="leverage-checkbox">
-              <input
-                id="leverage-checkbox"
-                type="checkbox"
-                checked={showLeverageCentrality}
-                onChange={(e) => setShowLeverageCentrality(e.target.checked)}
-              />
-              <span>Show Leverage Centrality</span>
-            </label>
-            <small>Calculates l(v) for each vertex as exact fractions and highlights highest centrality node(s).</small>
-          </div>
-        )}
+        <div className="leverage-option-card">
+          <label className="checkbox-field" htmlFor="leverage-checkbox">
+            <input
+              id="leverage-checkbox"
+              type="checkbox"
+              checked={showLeverageCentrality}
+              onChange={(e) => setShowLeverageCentrality(e.target.checked)}
+            />
+            <span>Show Leverage Centrality</span>
+          </label>
+          <small>Calculates l(v) for each vertex as exact fractions and highlights highest centrality node(s).</small>
+        </div>
 
         {error && <p className="error" role="alert">{error}</p>}<button className="generate-button" type="submit">Generate graph <span aria-hidden="true">→</span></button>
       </form>
       <div className="formula-card"><span className="formula-label">Graph notation</span><strong>G = {selectedType.notation}<sub>{values.n}×{values.m}</sub></strong><p>{selectedType.description} Odd rows contain m vertices; even rows contain m − 1.</p></div>
       
-      {isEdgeAugmented && showLeverageCentrality && leverageData && (
+      {showLeverageCentrality && leverageData && (
         <div className="formula-card leverage-card">
           <div className="leverage-card-header">
             <span className="formula-label">Leverage Centrality Analysis</span>
@@ -423,7 +417,7 @@ function App() {
       )}
 
       <details className="help-card"><summary>How to read this graph</summary><p>Each orange circle is a labelled vertex a<sub>ij</sub>, where <i>i</i> is its row and <i>j</i> is its position. Lines show the edges connecting two vertices.</p></details></aside>
-      <section className="visual-panel"><div className="visual-heading"><div><span className="section-kicker">Generated structure</span><h2>{selectedType.notation}<sub>{values.n}×{values.m}</sub></h2><p className="graph-type-name">{selectedType.label}</p></div><span className="live-status"><i /> Live preview</span></div><GraphCanvas graph={graph} n={values.n} m={values.m} graphName={selectedType.label} showLeverageCentrality={isEdgeAugmented && showLeverageCentrality} /><div className="stats"><div><span className="stat-icon"><Icon name="nodes" /></span><p><strong>{graph.nodes.length}</strong><small>Vertices</small></p></div><div><span className="stat-icon"><Icon name="edges" /></span><p><strong>{graph.edges.length}</strong><small>Edges</small></p></div><div><span className="stat-icon metric-icon">μ</span><p><strong>{averageDegree}</strong><small>Avg. degree</small></p></div><div><span className="stat-icon metric-icon">%</span><p><strong>{density}%</strong><small>Density</small></p></div><div className="definition"><small>Current definition</small><strong>n = {values.n}, m = {values.m}</strong></div></div></section>
+      <section className="visual-panel"><div className="visual-heading"><div><span className="section-kicker">Generated structure</span><h2>{selectedType.notation}<sub>{values.n}×{values.m}</sub></h2><p className="graph-type-name">{selectedType.label}</p></div><span className="live-status"><i /> Live preview</span></div><GraphCanvas graph={graph} n={values.n} m={values.m} graphName={selectedType.label} showLeverageCentrality={showLeverageCentrality} /><div className="stats"><div><span className="stat-icon"><Icon name="nodes" /></span><p><strong>{graph.nodes.length}</strong><small>Vertices</small></p></div><div><span className="stat-icon"><Icon name="edges" /></span><p><strong>{graph.edges.length}</strong><small>Edges</small></p></div><div><span className="stat-icon metric-icon">μ</span><p><strong>{averageDegree}</strong><small>Avg. degree</small></p></div><div><span className="stat-icon metric-icon">%</span><p><strong>{density}%</strong><small>Density</small></p></div><div className="definition"><small>Current definition</small><strong>n = {values.n}, m = {values.m}</strong></div></div></section>
     </section>
     <footer><span>Graphica · Delimited cross graph visualizer</span><span>Built for mathematical exploration</span></footer>
   </main>
