@@ -132,10 +132,7 @@ function fractionToDecimal(f) {
   return f.num / f.den
 }
 
-function calculateLeverageCentrality(graph) {
-  if (!graph || !graph.nodes || !graph.nodes.length) {
-    return { centralityMap: new Map(), rawFractions: new Map(), maxVal: -Infinity, maxNodeIds: new Set(), maxFrac: null }
-  }
+function getGraphAdjacency(graph) {
   const adjacency = new Map()
   graph.nodes.forEach((node) => adjacency.set(node.id, []))
   graph.edges.forEach(({ from, to }) => {
@@ -148,6 +145,14 @@ function calculateLeverageCentrality(graph) {
   graph.nodes.forEach((node) => {
     degrees.set(node.id, adjacency.get(node.id)?.length || 0)
   })
+  return { adjacency, degrees }
+}
+
+function calculateLeverageCentrality(graph) {
+  if (!graph || !graph.nodes || !graph.nodes.length) {
+    return { centralityMap: new Map(), rawFractions: new Map(), maxVal: -Infinity, maxNodeIds: new Set(), maxFrac: null, maxFormatted: '0', displayValues: new Map() }
+  }
+  const { adjacency, degrees } = getGraphAdjacency(graph)
 
   const rawFractions = new Map()
   const centralityMap = new Map()
@@ -193,7 +198,43 @@ function calculateLeverageCentrality(graph) {
     })
   }
 
-  return { centralityMap, rawFractions, maxVal, maxNodeIds, degrees, maxFrac }
+  const displayValues = new Map()
+  graph.nodes.forEach((node) => {
+    const frac = rawFractions.get(node.id)
+    displayValues.set(node.id, frac ? formatFraction(frac) : '0')
+  })
+
+  return { centralityMap, rawFractions, maxVal, maxNodeIds, degrees, maxFrac, maxFormatted: formatFraction(maxFrac), displayValues }
+}
+
+const CENTRALITY_OPTIONS = [
+  {
+    value: 'none',
+    label: 'None (Standard node labels)',
+    shortLabel: 'None',
+    description: 'Displays standard vertex indices aᵢⱼ without centrality calculation.',
+  },
+  {
+    value: 'leverage',
+    label: 'Leverage Centrality',
+    shortLabel: 'Leverage Centrality',
+    notation: 'l(v)',
+    description: 'Calculates l(v) for each vertex as exact fractions and highlights highest centrality node(s).',
+    formula: (
+      <>
+        l(v) = <sup>1</sup>/<sub>deg(v)</sub> ∑ <sup>(deg(v) − deg(v<sub>i</sub>))</sup>/<sub>(deg(v) + deg(v<sub>i</sub>))</sub>
+      </>
+    ),
+    calculate: (graph) => calculateLeverageCentrality(graph),
+  },
+  // Ready for 3 more centrality metrics to be added here
+]
+
+function calculateCentrality(centralityType, graph) {
+  if (!centralityType || centralityType === 'none') return null
+  const option = CENTRALITY_OPTIONS.find((opt) => opt.value === centralityType)
+  if (!option || !option.calculate) return null
+  return option.calculate(graph)
 }
 
 function Icon({ name }) {
@@ -210,17 +251,14 @@ function NumberField({ id, label, value, helper, onChange }) {
   return <label className="field" htmlFor={id}><span>{label}</span><input id={id} type="number" min={MIN_VALUE} step="1" value={value} onChange={(event) => onChange(event.target.value)} required /><small>{helper}</small></label>
 }
 
-function GraphCanvas({ graph, n, m, graphName, showLeverageCentrality }) {
+function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData }) {
   const nodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes])
   const [zoom, setZoom] = useState(1)
   const [showLabels, setShowLabels] = useState(true)
   const svgRef = useRef(null)
   const shellRef = useRef(null)
 
-  const leverageData = useMemo(() => {
-    if (!showLeverageCentrality) return null
-    return calculateLeverageCentrality(graph)
-  }, [graph, showLeverageCentrality])
+  const isCentralityActive = centralityType !== 'none' && centralityData != null
 
   const changeZoom = (amount) => setZoom((current) => Math.min(2, Math.max(.5, Number((current + amount).toFixed(1)))))
 
@@ -274,7 +312,7 @@ function GraphCanvas({ graph, n, m, graphName, showLeverageCentrality }) {
       <div className="graph-legend">
         <span><i className="legend-node" /> Vertex</span>
         <span><i className="legend-edge" /> Edge</span>
-        {showLeverageCentrality && (
+        {isCentralityActive && (
           <span className="legend-max"><i className="legend-max-node" /> Max Centrality</span>
         )}
       </div>
@@ -300,19 +338,19 @@ function GraphCanvas({ graph, n, m, graphName, showLeverageCentrality }) {
       </g>
       <g className="nodes">
         {graph.nodes.map((node, index) => {
-          const isMaxNode = leverageData?.maxNodeIds.has(node.id)
-          const lFrac = leverageData?.rawFractions.get(node.id)
-          const displayVal = lFrac ? formatFraction(lFrac) : '0'
+          const isMaxNode = isCentralityActive && centralityData.maxNodeIds.has(node.id)
+          const displayVal = isCentralityActive ? centralityData.displayValues.get(node.id) ?? '0' : ''
+          const labelWidth = Math.max(44, (displayVal.length + 1) * 8.5)
           return (
-            <g className={`node ${isMaxNode && showLeverageCentrality ? 'is-max-node' : ''}`} key={node.id} transform={`translate(${node.x} ${node.y})`} style={{ animationDelay: `${Math.min(index * 18, 700)}ms` }}>
-              {isMaxNode && showLeverageCentrality && <circle className="max-node-halo" r="16" />}
+            <g className={`node ${isMaxNode ? 'is-max-node' : ''}`} key={node.id} transform={`translate(${node.x} ${node.y})`} style={{ animationDelay: `${Math.min(index * 18, 700)}ms` }}>
+              {isMaxNode && <circle className="max-node-halo" r="16" />}
               <circle r="8"/>
               <circle className="node-core" r="3"/>
               {showLabels && (
-                showLeverageCentrality ? (
+                isCentralityActive ? (
                   <g className="numeric-label-group">
                     {isMaxNode && (
-                      <rect x="-24" y="-28" width="48" height="17" rx="4" className="max-label-bg" />
+                      <rect x={-labelWidth / 2} y="-28" width={labelWidth} height="17" rx="4" className="max-label-bg" />
                     )}
                     <text y="-15" textAnchor="middle" className={`numeric-label ${isMaxNode ? 'max-text' : ''}`}>
                       {displayVal}
@@ -336,16 +374,16 @@ function App() {
   const [mInput, setMInput] = useState('4')
   const [values, setValues] = useState({ n: 5, m: 4 })
   const [graphType, setGraphType] = useState('dc')
-  const [showLeverageCentrality, setShowLeverageCentrality] = useState(false)
+  const [centralityType, setCentralityType] = useState('none')
   const [error, setError] = useState('')
 
   const selectedType = GRAPH_TYPES.find((type) => type.value === graphType) ?? GRAPH_TYPES[0]
+  const selectedCentrality = CENTRALITY_OPTIONS.find((type) => type.value === centralityType) ?? CENTRALITY_OPTIONS[0]
   const graph = useMemo(() => createGraph(values.n, values.m, graphType), [values, graphType])
 
-  const leverageData = useMemo(() => {
-    if (!showLeverageCentrality) return null
-    return calculateLeverageCentrality(graph)
-  }, [graph, showLeverageCentrality])
+  const centralityData = useMemo(() => {
+    return calculateCentrality(centralityType, graph)
+  }, [graph, centralityType])
 
   const averageDegree = graph.nodes.length ? (2 * graph.edges.length / graph.nodes.length).toFixed(2) : '0'
   const density = graph.nodes.length > 1 ? (200 * graph.edges.length / (graph.nodes.length * (graph.nodes.length - 1))).toFixed(1) : '0'
@@ -381,43 +419,48 @@ function App() {
         <NumberField id="m-value" label="Maximum columns (m)" value={mInput} helper="Any integer of 2 or more" onChange={setMInput} />
         <label className="field" htmlFor="graph-type"><span>Graph type</span><select id="graph-type" value={graphType} onChange={(event) => handleGraphTypeChange(event.target.value)}><optgroup label="Base graph"><option value="dc">Delimited Cross Graph</option></optgroup><optgroup label="Edge Augmented">{GRAPH_TYPES.filter((type) => type.value.startsWith('edc')).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</optgroup><optgroup label="Vertex-Edge Augmented">{GRAPH_TYPES.filter((type) => type.value.startsWith('vedc')).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</optgroup></select><small>Grouped by graph family for easier selection</small></label>
         
-        <div className="leverage-option-card">
-          <label className="checkbox-field" htmlFor="leverage-checkbox">
-            <input
-              id="leverage-checkbox"
-              type="checkbox"
-              checked={showLeverageCentrality}
-              onChange={(e) => setShowLeverageCentrality(e.target.checked)}
-            />
-            <span>Show Leverage Centrality</span>
-          </label>
-          <small>Calculates l(v) for each vertex as exact fractions and highlights highest centrality node(s).</small>
-        </div>
+        <label className="field" htmlFor="centrality-type">
+          <span>Centrality measure</span>
+          <select
+            id="centrality-type"
+            value={centralityType}
+            onChange={(event) => setCentralityType(event.target.value)}
+          >
+            {CENTRALITY_OPTIONS.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+          <small>{selectedCentrality.description}</small>
+        </label>
 
         {error && <p className="error" role="alert">{error}</p>}<button className="generate-button" type="submit">Generate graph <span aria-hidden="true">→</span></button>
       </form>
       <div className="formula-card"><span className="formula-label">Graph notation</span><strong>G = {selectedType.notation}<sub>{values.n}×{values.m}</sub></strong><p>{selectedType.description} Odd rows contain m vertices; even rows contain m − 1.</p></div>
       
-      {showLeverageCentrality && leverageData && (
+      {centralityType !== 'none' && centralityData && (
         <div className="formula-card leverage-card">
           <div className="leverage-card-header">
-            <span className="formula-label">Leverage Centrality Analysis</span>
-            <span className="max-value-pill">Max: {formatFraction(leverageData.maxFrac)}</span>
+            <span className="formula-label">{selectedCentrality.label} Analysis</span>
+            <span className="max-value-pill">Max: {centralityData.maxFormatted}</span>
           </div>
-          <div className="leverage-formula-box">
-            l(v) = <sup>1</sup>/<sub>deg(v)</sub> ∑ <sup>(deg(v) − deg(v<sub>i</sub>))</sup>/<sub>(deg(v) + deg(v<sub>i</sub>))</sub>
-          </div>
+          {selectedCentrality.formula && (
+            <div className="leverage-formula-box">
+              {selectedCentrality.formula}
+            </div>
+          )}
           <p className="max-nodes-list">
-            Highest Node(s): <strong>{Array.from(leverageData.maxNodeIds).map(id => {
+            Highest Node(s): <strong>{Array.from(centralityData.maxNodeIds).map(id => {
               const node = graph.nodes.find(n => n.id === id);
               return node ? `a${node.row}${node.column}` : id;
-            }).join(', ')}</strong> ({formatFraction(leverageData.maxFrac)})
+            }).join(', ')}</strong> ({centralityData.maxFormatted})
           </p>
         </div>
       )}
 
       <details className="help-card"><summary>How to read this graph</summary><p>Each orange circle is a labelled vertex a<sub>ij</sub>, where <i>i</i> is its row and <i>j</i> is its position. Lines show the edges connecting two vertices.</p></details></aside>
-      <section className="visual-panel"><div className="visual-heading"><div><span className="section-kicker">Generated structure</span><h2>{selectedType.notation}<sub>{values.n}×{values.m}</sub></h2><p className="graph-type-name">{selectedType.label}</p></div><span className="live-status"><i /> Live preview</span></div><GraphCanvas graph={graph} n={values.n} m={values.m} graphName={selectedType.label} showLeverageCentrality={showLeverageCentrality} /><div className="stats"><div><span className="stat-icon"><Icon name="nodes" /></span><p><strong>{graph.nodes.length}</strong><small>Vertices</small></p></div><div><span className="stat-icon"><Icon name="edges" /></span><p><strong>{graph.edges.length}</strong><small>Edges</small></p></div><div><span className="stat-icon metric-icon">μ</span><p><strong>{averageDegree}</strong><small>Avg. degree</small></p></div><div><span className="stat-icon metric-icon">%</span><p><strong>{density}%</strong><small>Density</small></p></div><div className="definition"><small>Current definition</small><strong>n = {values.n}, m = {values.m}</strong></div></div></section>
+      <section className="visual-panel"><div className="visual-heading"><div><span className="section-kicker">Generated structure</span><h2>{selectedType.notation}<sub>{values.n}×{values.m}</sub></h2><p className="graph-type-name">{selectedType.label}</p></div><span className="live-status"><i /> Live preview</span></div><GraphCanvas graph={graph} n={values.n} m={values.m} graphName={selectedType.label} centralityType={centralityType} centralityData={centralityData} /><div className="stats"><div><span className="stat-icon"><Icon name="nodes" /></span><p><strong>{graph.nodes.length}</strong><small>Vertices</small></p></div><div><span className="stat-icon"><Icon name="edges" /></span><p><strong>{graph.edges.length}</strong><small>Edges</small></p></div><div><span className="stat-icon metric-icon">μ</span><p><strong>{averageDegree}</strong><small>Avg. degree</small></p></div><div><span className="stat-icon metric-icon">%</span><p><strong>{density}%</strong><small>Density</small></p></div><div className="definition"><small>Current definition</small><strong>n = {values.n}, m = {values.m}</strong></div></div></section>
     </section>
     <footer><span>Graphica · Delimited cross graph visualizer</span><span>Built for mathematical exploration</span></footer>
   </main>
