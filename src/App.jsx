@@ -412,6 +412,8 @@ function calculateTotalInfluence(graph) {
   if (!graph || !graph.nodes || !graph.nodes.length) {
     return {
       totalInfluenceMap: new Map(),
+      positionsMap: new Map(),
+      maxPosition: 0,
       breakdownMap: new Map(),
       minSum: 0,
       maxSum: 0,
@@ -442,12 +444,20 @@ function calculateTotalInfluence(graph) {
   })
 
   const uniqueSums = Array.from(new Set(totalInfluenceMap.values())).sort((a, b) => a - b)
-  const sortedGroups = uniqueSums.map((sum) => {
+  const positionsMap = new Map()
+  totalInfluenceMap.forEach((sum, id) => {
+    const position = uniqueSums.indexOf(sum) + 1
+    positionsMap.set(id, position)
+  })
+
+  const sortedGroups = uniqueSums.map((sum, idx) => {
+    const position = idx + 1
     const nodeIds = []
     totalInfluenceMap.forEach((v, id) => {
       if (v === sum) nodeIds.push(id)
     })
     return {
+      position,
       sum,
       nodeIds,
       nodes: nodeIds.map((id) => {
@@ -460,6 +470,8 @@ function calculateTotalInfluence(graph) {
 
   return {
     totalInfluenceMap,
+    positionsMap,
+    maxPosition: uniqueSums.length,
     breakdownMap,
     minSum: minSum === Infinity ? 0 : minSum,
     maxSum: maxSum === -Infinity ? 0 : maxSum,
@@ -563,6 +575,7 @@ function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData, v
   const isCentralityActive = centralityType !== 'none' && centralityData != null
   const isRanking = vertexDisplayMode === 'ranking'
   const isTotalInfluence = vertexDisplayMode === 'total-influence'
+  const isPositions = vertexDisplayMode === 'positions'
 
   const changeZoom = (amount) => setZoom((current) => Math.min(2, Math.max(.5, Number((current + amount).toFixed(1)))))
 
@@ -617,13 +630,13 @@ function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData, v
     <div className="canvas-toolbar" aria-label="Graph view controls">
       <div className="graph-legend">
         <span>
-          <i className="legend-node" /> Vertex {isTotalInfluence ? '(Total Influence)' : (isRanking ? '(Rank)' : (centralityType === 'edge-degree' ? '(EDS)' : ''))}
+          <i className="legend-node" /> Vertex {isPositions ? '(Position)' : (isTotalInfluence ? '(Total Influence)' : (isRanking ? '(Rank)' : (centralityType === 'edge-degree' ? '(EDS)' : '')))}
         </span>
         <span><i className="legend-edge" /> Edge</span>
-        {centralityType === 'edge-degree' && !isRanking && !isTotalInfluence && (
+        {centralityType === 'edge-degree' && !isRanking && !isTotalInfluence && !isPositions && (
           <span className="legend-edge-degree"><i className="legend-edge-pill" /> Edge Degree</span>
         )}
-        {isCentralityActive && centralityType !== 'closeness' && !isRanking && !isTotalInfluence && (
+        {isCentralityActive && centralityType !== 'closeness' && !isRanking && !isTotalInfluence && !isPositions && (
           <span className="legend-max"><i className="legend-max-node" /> Max Centrality</span>
         )}
       </div>
@@ -647,7 +660,7 @@ function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData, v
           return <line key={`${edge.from}-${edge.to}-${index}`} x1={start.x} y1={start.y} x2={end.x} y2={end.y} style={{ animationDelay: `${Math.min(index * 14, 600)}ms` }} />
         })}
       </g>
-      {showLabels && centralityType === 'edge-degree' && !isRanking && !isTotalInfluence && centralityData?.edgeValues && (
+      {showLabels && centralityType === 'edge-degree' && !isRanking && !isTotalInfluence && !isPositions && centralityData?.edgeValues && (
         <g className="edge-labels">
           {graph.edges.map((edge, index) => {
             const start = nodeById.get(edge.from);
@@ -670,9 +683,12 @@ function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData, v
       <g className="nodes">
         {graph.nodes.map((node, index) => {
           const isMaxNode = isCentralityActive && centralityData.maxNodeIds.has(node.id)
-          const showMaxHighlight = isMaxNode && centralityType !== 'closeness' && !isRanking && !isTotalInfluence
+          const showMaxHighlight = isMaxNode && centralityType !== 'closeness' && !isRanking && !isTotalInfluence && !isPositions
           let displayVal = ''
-          if (isTotalInfluence && totalInfluenceData) {
+          if (isPositions && totalInfluenceData) {
+            const posVal = totalInfluenceData.positionsMap?.get(node.id)
+            displayVal = posVal != null ? String(posVal) : ''
+          } else if (isTotalInfluence && totalInfluenceData) {
             const sumVal = totalInfluenceData.totalInfluenceMap.get(node.id)
             displayVal = sumVal != null ? String(sumVal) : ''
           } else if (isRanking) {
@@ -688,7 +704,7 @@ function GraphCanvas({ graph, n, m, graphName, centralityType, centralityData, v
               <circle r="8"/>
               <circle className="node-core" r="3"/>
               {showLabels && (
-                isCentralityActive || isTotalInfluence ? (
+                isCentralityActive || isTotalInfluence || isPositions ? (
                   <g className="numeric-label-group">
                     {showMaxHighlight && (
                       <rect x={-labelWidth / 2} y="-35" width={labelWidth} height="17" rx="4" className="max-label-bg" />
@@ -728,7 +744,7 @@ function App() {
   }, [graph, centralityType])
 
   const totalInfluenceData = useMemo(() => {
-    if (vertexDisplayMode !== 'total-influence') return null
+    if (vertexDisplayMode !== 'total-influence' && vertexDisplayMode !== 'positions') return null
     return calculateTotalInfluence(graph)
   }, [graph, vertexDisplayMode])
 
@@ -793,12 +809,15 @@ function App() {
               <option value="values">Centrality values</option>
               <option value="ranking">Ranking the vertices</option>
               <option value="total-influence">Total influence of the vertices</option>
+              <option value="positions">Positions given to the vertices</option>
             </select>
             <small>
               {vertexDisplayMode === 'ranking'
                 ? 'Ranks vertices in descending order (highest value = 1, next = 2, etc.)'
                 : vertexDisplayMode === 'total-influence'
                 ? 'Sums the dense ranks of Degree, Edge-degree, and Closeness centralities for each vertex.'
+                : vertexDisplayMode === 'positions'
+                ? 'Assigns final positions in ascending order of total influence (lowest sum = Position 1).'
                 : 'Displays actual calculated centrality values on vertices.'}
             </small>
           </label>
@@ -809,7 +828,49 @@ function App() {
       <div className="formula-card"><span className="formula-label">Graph notation</span><strong>G = {selectedType.notation}<sub>{values.n}×{values.m}</sub></strong><p>{selectedType.description} Odd rows contain m vertices; even rows contain m − 1.</p></div>
       
       {centralityType !== 'none' && centralityData && (
-        vertexDisplayMode === 'total-influence' && totalInfluenceData ? (
+        vertexDisplayMode === 'positions' && totalInfluenceData ? (
+          <div className="formula-card leverage-card">
+            <div className="leverage-card-header">
+              <span className="formula-label">Positions Given to Vertices</span>
+              <span className="max-value-pill total-influence-pill">
+                Positions: 1 to {totalInfluenceData.maxPosition}
+              </span>
+            </div>
+            <div className="leverage-formula-box">
+              <div>
+                <strong>Final Positioning:</strong> Ascending rank of Total Influence TI(v)
+              </div>
+              <div style={{ marginTop: '5px', fontSize: '11px', opacity: 0.85 }}>
+                P(v) = Dense rank of TI(v) in ascending order. Lower sum of centrality ranks = superior position (Position 1 is the most central).
+              </div>
+            </div>
+            <div className="ranking-breakdown">
+              <span className="formula-label" style={{ marginTop: '10px', marginBottom: '6px' }}>
+                Positions Given to Vertices (Ascending Order)
+              </span>
+              <div className="rank-group-list">
+                {totalInfluenceData.sortedGroups.map((g) => (
+                  <div key={g.position} className="rank-group-item">
+                    <span className={`rank-badge position-badge ${g.position === 1 ? 'is-best' : ''}`}>
+                      Position {g.position} {g.position === 1 ? '★' : ''}
+                    </span>
+                    <span className="rank-value-info">
+                      TI Sum: <strong>{g.sum}</strong>
+                    </span>
+                    <span className="rank-nodes-info">
+                      ({g.nodes.length} {g.nodes.length === 1 ? 'node' : 'nodes'}: {g.nodes.join(', ')})
+                    </span>
+                    {g.breakdown && (
+                      <span className="rank-breakdown-details">
+                        [Deg: R{g.breakdown.rDeg}, Edge: R{g.breakdown.rEdge}, Close: R{g.breakdown.rClose}]
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : vertexDisplayMode === 'total-influence' && totalInfluenceData ? (
           <div className="formula-card leverage-card">
             <div className="leverage-card-header">
               <span className="formula-label">Total Influence of Vertices</span>
