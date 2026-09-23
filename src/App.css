@@ -236,6 +236,7 @@ footer { width: min(1180px, calc(100% - 48px)); margin: -42px auto 35px; display
   font-family: 'Manrope', sans-serif;
   font-weight: 700;
   font-size: 12px;
+  font-style: normal !important;
   paint-order: stroke;
   stroke: #ffffff;
   stroke-width: 3px;
@@ -244,7 +245,120 @@ footer { width: min(1180px, calc(100% - 48px)); margin: -42px auto 35px; display
 .numeric-label.max-text {
   fill: #78350f;
   font-weight: 800;
+  font-style: normal !important;
   stroke: #ffffff;
   stroke-width: 3.5px;
 }
+
+/* Edge Degree Badges on Graph Edges */
+.edge-label-group {
+  animation: pop-node 0.35s ease forwards;
+}
+.edge-label-bg {
+  fill: #ffffff;
+  stroke: #586a61;
+  stroke-width: 1.6px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+}
+.edge-label-text {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  fill: #1b4d3e;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+.legend-edge-degree {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #1b4d3e !important;
+  font-weight: 700 !important;
+}
+.legend-edge-pill {
+  width: 9px;
+  height: 9px;
+  background: #ffffff;
+  border: 1.6px solid #586a61;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(88, 106, 97, 0.15);
+}
+
+/* Ranking Breakdown in Sidebar Card */
+.ranking-breakdown {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #fde68a;
+}
+.rank-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.rank-group-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #78350f;
+}
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  background: #f59e0b;
+  color: #ffffff;
+  border-radius: 5px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.rank-value-info {
+  color: #78350f;
+  font-size: 11px;
+}
+.rank-value-info strong {
+  font-size: 12px;
+  color: #92400e;
+}
+.rank-nodes-info {
+  color: #92400e;
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+/* Total Influence in Sidebar Card */
+.total-influence-pill {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.total-influence-badge {
+  background: #2563eb;
+}
+
+.total-influence-badge.is-best {
+  background: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+}
+
+.rank-breakdown-details {
+  font-size: 10px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+}
+
+
 
